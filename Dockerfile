@@ -1,11 +1,15 @@
-# Use official PHP image with Composer
+# Use official PHP image
 FROM php:8.2-cli
 
 # Install system dependencies and PHP extensions
 RUN apt-get update && apt-get install -y \
     unzip \
     libzip-dev \
-    && docker-php-ext-install pdo pdo_mysql zip
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    git \
+    && docker-php-ext-install pdo pdo_mysql zip mbstring bcmath exif gd
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -19,8 +23,11 @@ COPY . .
 # Install dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Expose Cloud Run's default port
+# Fix permissions for Laravel storage
+RUN chown -R www-data:www-data storage bootstrap/cache
+
+# Expose Railway/Cloud Run default port
 EXPOSE 8080
 
-# Start Laravel using Cloud Run's PORT env var
-CMD php artisan serve --host=0.0.0.0 --port=$PORT
+# Run migrations and start Laravel
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8080
