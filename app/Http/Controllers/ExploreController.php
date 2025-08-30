@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Explore;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ExploreController extends Controller
@@ -40,10 +42,6 @@ class ExploreController extends Controller
         ], 200);
     }
 
-
-
-
-
     /**
      * Show the form for creating a new resource.
      */
@@ -55,7 +53,8 @@ class ExploreController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-   public function store(Request $request)
+
+    public function store(Request $request)
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -66,8 +65,10 @@ class ExploreController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('explore_images', 'public');
-            $imageUrl = Storage::url($imagePath); 
+            $uploadedFileUrl = Cloudinary::upload(
+                $request->file('image')->getRealPath(),
+                ['folder' => 'explore_images'] 
+            )->getSecurePath();
         } else {
             return response()->json(['error' => 'Image upload failed'], 422);
         }
@@ -77,7 +78,7 @@ class ExploreController extends Controller
             'description' => $validated['description'],
             'web_link' => $validated['web_link'],
             'filter' => $validated['filter'] ?? null,
-            'image' => $imageUrl, 
+            'image' => $uploadedFileUrl,
         ]);
 
         return response()->json([
@@ -119,20 +120,25 @@ class ExploreController extends Controller
 
         if ($request->hasFile('image')) {
             if ($explore->image) {
-                $oldPath = str_replace('/storage/', '', $explore->image);
-                Storage::disk('public')->delete($oldPath);
+                try {
+                    $publicId = pathinfo(parse_url($explore->image, PHP_URL_PATH), PATHINFO_FILENAME);
+                    Cloudinary::destroy('explore_images/' . $publicId);
+                } catch (\Exception $e) {
+                    Log::warning("Failed to delete old Cloudinary image: " . $e->getMessage());
+                }
             }
 
-            $imagePath = $request->file('image')->store('explore_images', 'public');
-            $imageUrl = Storage::url($imagePath);
+            $uploadedFileUrl = Cloudinary::upload(
+                $request->file('image')->getRealPath(),
+                ['folder' => 'explore_images']
+            )->getSecurePath();
 
-            $validated['image'] = $imageUrl;
+            $validated['image'] = $uploadedFileUrl;
         } else {
             $validated['image'] = $explore->image;
         }
 
         $explore->update($validated);
-
         $explore->refresh();
 
         return response()->json([
