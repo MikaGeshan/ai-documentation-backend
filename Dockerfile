@@ -19,8 +19,8 @@ COPY . .
 # Install dependencies
 RUN composer install --no-dev --optimize-autoloader
 
-# Expose port
-EXPOSE 8000
+# Expose Cloud Run's default port
+EXPOSE 8080
 
-# Start Laravel using artisan
-CMD php artisan serve --host=0.0.0.0 --port=8000
+# Start Laravel using Cloud Run's PORT env var
+CMD php artisan serve --host=0.0.0.0 --port=$PORT
