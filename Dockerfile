@@ -26,8 +26,9 @@ RUN composer install --no-dev --optimize-autoloader
 # Fix permissions for Laravel storage
 RUN chown -R www-data:www-data storage bootstrap/cache
 
-# Expose Railway/Cloud Run default port
+# Expose Railway default port
 EXPOSE 8080
 
-# Run migrations and start Laravel
-CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=8080
+# Run migrations and start Laravel (bind to $PORT)
+CMD php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=$PORT
+
