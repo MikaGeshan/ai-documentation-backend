@@ -18,28 +18,17 @@ class BrevoOTPNotification extends Notification
 
     public function via($notifiable)
     {
-        return ['brevo'];
+        return ['mail'];
     }
 
-    public function toBrevo($notifiable)
+   public function toMail($notifiable)
     {
         $code = $this->otp['token'];
 
-        return Http::withHeaders([
-            'api-key' => env('BREVO_API_KEY'),
-            'accept' => 'application/json',
-            'content-type' => 'application/json',
-        ])->post('https://api.brevo.com/v3/smtp/email', [
-            'sender' => [
-                'name'  => config('mail.from.name'),
-                'email' => config('mail.from.address'),
-            ],
-            'to' => [
-                ['email' => $notifiable->email],
-            ],
-            'subject' => 'Your OTP Code',
-            'htmlContent' => "<p>Your OTP is <strong>{$code}</strong></p>",
-        ]);
+        return (new \Illuminate\Notifications\Messages\MailMessage)
+            ->subject('Your OTP Code')
+            ->line("Your OTP is: {$code}")
+            ->line('It will expire in 15 minutes.');
     }
 }
 
