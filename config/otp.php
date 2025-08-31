@@ -39,5 +39,5 @@ return [
     | Notification to use for OTP
     |
     */
-    'notification' => \SadiqSalau\LaravelOtp\OtpNotification::class,
+    'notification' => \App\Notifications\BrevoOTPNotification::class,
 ];
