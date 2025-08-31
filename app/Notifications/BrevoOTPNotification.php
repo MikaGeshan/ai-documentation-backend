@@ -1,9 +1,10 @@
 <?php
+
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use App\Services\BrevoMailerService;
 
 class BrevoOTPNotification extends Notification
 {
@@ -11,34 +12,25 @@ class BrevoOTPNotification extends Notification
 
     public string $token;
 
-    /**
-     * @param  string|array
-     */
-    public function __construct($token)
+    public function __construct(string $token)
     {
-        if (is_array($token) && isset($token['token'])) {
-            $this->token = $token['token'];
-        } elseif (is_string($token)) {
-            $this->token = $token;
-        } else {
-            // fallback untuk debugging
-            $this->token = json_encode($token);
-        }
+        $this->token = $token;
     }
 
     public function via($notifiable)
     {
-        return ['mail'];
+        return ['brevo'];
     }
 
-    public function toMail($notifiable)
+    public function toBrevo($notifiable)
     {
-        return (new MailMessage)
-            ->subject('Your OTP Code')
-            ->greeting('Hello!')
-            ->line("Your OTP code is: **{$this->token}**")
-            ->line('This code will expire in 15 minutes.');
+        $mailer = app(BrevoMailerService::class);
+
+        return $mailer->send(
+            $notifiable->email,
+            $notifiable->name ?? 'User',
+            'AI Documentation Verify OTP Code',
+            "<p>Hello,</p><p>Your OTP code is: <strong>{$this->token}</strong></p>"
+        );
     }
 }
-
-
