@@ -27,10 +27,7 @@ class BrevoOTPNotification extends Notification
     {
         $mailer = app(BrevoMailerService::class);
 
-        // Use routeNotificationForBrevo if defined
-        $email = method_exists($notifiable, 'routeNotificationForBrevo')
-            ? $notifiable->routeNotificationForBrevo()
-            : ($notifiable->email ?? null);
+        $email = $notifiable->routes['brevo'] ?? null;
 
         if (!$email) {
             throw new \Exception('Email not found for Brevo notification.');
