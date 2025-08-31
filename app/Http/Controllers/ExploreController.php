@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Explore;
+use App\Services\CloudinaryService;
 use Cloudinary\Api\Upload\UploadApi;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Http\Request;
@@ -55,7 +56,7 @@ class ExploreController extends Controller
      * Store a newly created resource in storage.
      */
 
-    public function store(Request $request)
+        public function store(Request $request, CloudinaryService $cloudinary)
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -65,40 +66,27 @@ class ExploreController extends Controller
             'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        if (!$request->hasFile('image')) {
+        if ($request->hasFile('image')) {
+            $uploadedFileUrl = $cloudinary->upload(
+                $request->file('image')->getRealPath(),
+                'explore_images'
+            );
+        } else {
             return response()->json(['error' => 'Image upload failed'], 422);
         }
 
-        try {
-            $uploadedFile = (new UploadApi())->upload(
-                $request->file('image')->getRealPath(),
-                ['folder' => 'explore_images']
-            );
+        $explore = Explore::create([
+            'title' => $validated['title'],
+            'description' => $validated['description'],
+            'web_link' => $validated['web_link'],
+            'filter' => $validated['filter'] ?? null,
+            'image' => $uploadedFileUrl,
+        ]);
 
-            $uploadedFileUrl = $uploadedFile['secure_url'] ?? null;
-
-            if (!$uploadedFileUrl) {
-                return response()->json(['error' => 'Cloudinary upload failed'], 500);
-            }
-
-            $explore = Explore::create([
-                'title' => $validated['title'],
-                'description' => $validated['description'],
-                'web_link' => $validated['web_link'],
-                'filter' => $validated['filter'] ?? null,
-                'image' => $uploadedFileUrl,
-            ]);
-
-            return response()->json([
-                'message' => 'Explore item created successfully',
-                'data' => $explore,
-            ], 201);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'Upload failed: ' . $e->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'message' => 'Explore item created successfully',
+            'data' => $explore,
+        ], 201);
     }
 
     /**
