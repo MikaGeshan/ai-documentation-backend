@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Explore;
+use Cloudinary\Api\Upload\UploadApi;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -64,27 +65,40 @@ class ExploreController extends Controller
             'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        if ($request->hasFile('image')) {
-            $uploadedFileUrl = Cloudinary::upload(
-                $request->file('image')->getRealPath(),
-                ['folder' => 'explore_images'] 
-            )->getSecurePath();
-        } else {
+        if (!$request->hasFile('image')) {
             return response()->json(['error' => 'Image upload failed'], 422);
         }
 
-        $explore = Explore::create([
-            'title' => $validated['title'],
-            'description' => $validated['description'],
-            'web_link' => $validated['web_link'],
-            'filter' => $validated['filter'] ?? null,
-            'image' => $uploadedFileUrl,
-        ]);
+        try {
+            $uploadedFile = (new UploadApi())->upload(
+                $request->file('image')->getRealPath(),
+                ['folder' => 'explore_images']
+            );
 
-        return response()->json([
-            'message' => 'Explore item created successfully',
-            'data' => $explore,
-        ], 201);
+            $uploadedFileUrl = $uploadedFile['secure_url'] ?? null;
+
+            if (!$uploadedFileUrl) {
+                return response()->json(['error' => 'Cloudinary upload failed'], 500);
+            }
+
+            $explore = Explore::create([
+                'title' => $validated['title'],
+                'description' => $validated['description'],
+                'web_link' => $validated['web_link'],
+                'filter' => $validated['filter'] ?? null,
+                'image' => $uploadedFileUrl,
+            ]);
+
+            return response()->json([
+                'message' => 'Explore item created successfully',
+                'data' => $explore,
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Upload failed: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
