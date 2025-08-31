@@ -17,7 +17,7 @@ class BrevoOTPNotification extends Notification
      */
     public function __construct(array $token)
     {
-        $this->token = $token['code'];
+        $this->token = $token['code'] ?? ''; 
     }
 
     public function via($notifiable)
