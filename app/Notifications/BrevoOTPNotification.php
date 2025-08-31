@@ -23,7 +23,7 @@ class BrevoOTPNotification extends Notification
 
    public function toMail($notifiable)
     {
-        $code = $this->otp['token'];
+        $code = $this->otp;
 
         return (new \Illuminate\Notifications\Messages\MailMessage)
             ->subject('Your OTP Code')
