@@ -2,18 +2,28 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\Http;
 
 class BrevoOTPNotification extends Notification
 {
     use Queueable;
 
-    protected $otp;
+    public string $token;
 
-    public function __construct(array $otp)
+    /**
+     * @param  string|array
+     */
+    public function __construct($token)
     {
-        $this->otp = $otp;
+        if (is_array($token) && isset($token['token'])) {
+            $this->token = $token['token'];
+        } elseif (is_string($token)) {
+            $this->token = $token;
+        } else {
+            // fallback untuk debugging
+            $this->token = json_encode($token);
+        }
     }
 
     public function via($notifiable)
@@ -21,14 +31,14 @@ class BrevoOTPNotification extends Notification
         return ['mail'];
     }
 
-   public function toMail($notifiable)
+    public function toMail($notifiable)
     {
-        $code = $this->otp;
-
-        return (new \Illuminate\Notifications\Messages\MailMessage)
+        return (new MailMessage)
             ->subject('Your OTP Code')
-            ->line("Your OTP is: {$code}")
-            ->line('It will expire in 15 minutes.');
+            ->greeting('Hello!')
+            ->line("Your OTP code is: **{$this->token}**")
+            ->line('This code will expire in 15 minutes.');
     }
 }
+
 
