@@ -56,23 +56,34 @@ class ExploreController extends Controller
      * Store a newly created resource in storage.
      */
 
-        public function store(Request $request, CloudinaryService $cloudinary)
-    {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string|max:200',
-            'web_link' => 'required|string',
-            'filter' => 'nullable|string',
-            'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
-        ]);
+    public function store(Request $request)
+{
+    $validated = $request->validate([
+        'title' => 'required|string|max:255',
+        'description' => 'required|string|max:200',
+        'web_link' => 'required|string',
+        'filter' => 'nullable|string',
+        'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
+    ]);
 
-        if ($request->hasFile('image')) {
-            $uploadedFileUrl = $cloudinary->upload(
-                $request->file('image')->getRealPath(),
-                'explore_images'
-            );
-        } else {
-            return response()->json(['error' => 'Image upload failed'], 422);
+    try {
+        if (!$request->hasFile('image') || !$request->file('image')->isValid()) {
+            return response()->json(['error' => 'No valid image uploaded.'], 422);
+        }
+
+        $file = $request->file('image');
+        $filePath = $file->getRealPath();
+
+        if (!$filePath) {
+            return response()->json(['error' => 'Temporary file not found.'], 422);
+        }
+
+        // Upload to Cloudinary
+        $cloudinaryService = app(CloudinaryService::class);
+        $uploadedFileUrl = $cloudinaryService->upload($filePath, 'explore_images');
+
+        if (!$uploadedFileUrl) {
+            return response()->json(['error' => 'Cloudinary upload failed.'], 500);
         }
 
         $explore = Explore::create([
@@ -87,7 +98,17 @@ class ExploreController extends Controller
             'message' => 'Explore item created successfully',
             'data' => $explore,
         ], 201);
+
+    } catch (\Throwable $e) {
+        Log::error('Explore upload error: ' . $e->getMessage());
+
+        return response()->json([
+            'error' => 'The image failed to upload.',
+            'message' => $e->getMessage(),
+        ], 500);
     }
+}
+
 
     /**
      * Display the specified resource.
