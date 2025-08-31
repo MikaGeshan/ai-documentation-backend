@@ -58,9 +58,9 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA   => storage_path('ssl/server-ca.pem'),
-                PDO::MYSQL_ATTR_SSL_CERT => storage_path('ssl/client-cert.pem'),
-                PDO::MYSQL_ATTR_SSL_KEY  => storage_path('ssl/client-key.pem'),
+                PDO::MYSQL_ATTR_SSL_CA   => storage_path('framework/ssl/server-ca.pem'),
+                PDO::MYSQL_ATTR_SSL_CERT => storage_path('framework/ssl/client-cert.pem'),
+                PDO::MYSQL_ATTR_SSL_KEY  => storage_path('framework/ssl/client-key.pem'),
             ]) : [],
         ],
 
