@@ -29,9 +29,15 @@ class BrevoOTPNotification extends Notification
     {
         $mailer = app(BrevoMailerService::class);
 
+        $email = method_exists($notifiable, 'routeNotificationForBrevo')
+            ? $notifiable->routeNotificationForBrevo()
+            : ($notifiable->email ?? null);
+
+        $name = $notifiable->name ?? 'User';
+
         return $mailer->send(
-            $notifiable->email,
-            $notifiable->name ?? 'User',
+            $email,
+            $name,
             'AI Documentation Verify OTP Code',
             "<p>Hello,</p><p>Your OTP code is: <strong>{$this->token}</strong></p>"
         );
