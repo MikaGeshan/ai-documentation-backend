@@ -12,9 +12,12 @@ class BrevoOTPNotification extends Notification
 
     public string $token;
 
-    public function __construct(string $token)
+    /**
+     * Take Token from array and convert it into string
+     */
+    public function __construct(array $token)
     {
-        $this->token = $token;
+        $this->token = $token['token'];
     }
 
     public function via($notifiable)
