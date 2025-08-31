@@ -60,19 +60,20 @@ class AuthController extends Controller
                 'password' => $request->password, 
             ], now()->addMinutes(10)); 
 
-            $otp = Otp::identifier($email)->send(
-                new UserRegistrationOtp(
-                    name: $request->name,
-                    email: $email,
-                    password: $request->password
-                ),
-                Notification::route('mail', $email)
+            // Generate OTP
+            $otpToken = Otp::identifier($email)->generate(); 
+
+            // Send Brevo notification
+            $user = new \Illuminate\Notifications\AnonymousNotifiable();
+            $user->notify(
+                (new \App\Notifications\BrevoOTPNotification($otpToken))
+                    ->route('brevo', $email)
             );
 
             return response()->json([
                 'success' => true,
                 'message' => 'OTP berhasil dikirim. Silakan cek email Anda untuk verifikasi.',
-                'status' => $otp['status'],
+                'token'     => $otpToken, 
             ]);
         } catch (\Throwable $e) {
             return response()->json([
@@ -81,6 +82,7 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
 
 
     public function logout()
