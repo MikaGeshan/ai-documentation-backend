@@ -12,12 +12,10 @@ class BrevoOTPNotification extends Notification
 
     public string $token;
 
-    /**
-     * Take Token from array and convert it into string
-     */
+    // Accept the OTP array directly from LaravelOtp
     public function __construct(array $token)
     {
-        $this->token = $token['code'] ?? ''; 
+        $this->token = $token['code'] ?? '';
     }
 
     public function via($notifiable)
@@ -25,23 +23,24 @@ class BrevoOTPNotification extends Notification
         return ['brevo'];
     }
 
-    public function toBrevo($notifiable, array $token) // <-- token array comes here
-{
-    $this->token = $token['code'] ?? '';
+    public function toBrevo($notifiable)
+    {
+        $mailer = app(BrevoMailerService::class);
 
-    $mailer = app(BrevoMailerService::class);
+        // Use routeNotificationForBrevo if defined
+        $email = method_exists($notifiable, 'routeNotificationForBrevo')
+            ? $notifiable->routeNotificationForBrevo()
+            : ($notifiable->email ?? null);
 
-    $email = method_exists($notifiable, 'routeNotificationForBrevo')
-        ? $notifiable->routeNotificationForBrevo()
-        : ($notifiable->email ?? null);
+        if (!$email) {
+            throw new \Exception('Email not found for Brevo notification.');
+        }
 
-    $name = $notifiable->name ?? 'User';
-
-    return $mailer->send(
-        $email,
-        $name,
-        'AI Documentation Verify OTP Code',
-        "<p>Hello,</p><p>Your OTP code is: <strong>{$this->token}</strong></p>"
-    );
-}
+        return $mailer->send(
+            $email,
+            'User', // no need to send name
+            'AI Documentation Verify OTP Code',
+            "<p>Hello,</p><p>Your OTP code is: <strong>{$this->token}</strong></p>"
+        );
+    }
 }

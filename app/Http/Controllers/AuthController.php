@@ -43,46 +43,47 @@ class AuthController extends Controller
     }
 
 
-    public function register(Request $request)
-{
-    $request->validate([
-        'name'     => ['required', 'string', 'max:255'],
-        'email'    => ['required', 'email', 'unique:users,email'],
-        'password' => ['required', 'string', 'min:8'],
-    ]);
-
-    try {
-        $email = strtolower($request->email);
-
-        // Store registration payload in cache
-        Cache::put("register_payload_{$email}", [
-            'name'     => $request->name,
-            'email'    => $email,
-            'password' => $request->password, 
-        ], now()->addMinutes(10));
-
-        // Generate OTP using the package
-        $otpData = Otp::identifier($email)->generate(); 
-
-        // Send OTP via Brevo notification
-        $user = new \Illuminate\Notifications\AnonymousNotifiable();
-        $user->notify(
-            (new \App\Notifications\BrevoOTPNotification($otpData))
-                ->route('brevo', $email)
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'OTP berhasil dikirim. Silakan cek email Anda untuk verifikasi.',
+        public function register(Request $request)
+    {
+        $request->validate([
+            'name'     => ['required', 'string', 'max:255'],
+            'email'    => ['required', 'email', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8'],
         ]);
 
-    } catch (\Throwable $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Gagal mengirim OTP: ' . $e->getMessage(),
-        ], 500);
+        try {
+            $email = strtolower($request->email);
+
+            // Save registration payload temporarily
+            Cache::put("register_payload_{$email}", [
+                'name'     => $request->name,
+                'email'    => $email,
+                'password' => $request->password,
+            ], now()->addMinutes(10));
+
+            // Send OTP via Brevo API
+            Otp::identifier($email)->send(
+                new \App\Otp\UserRegistrationOtp(
+                    name: $request->name,
+                    email: $email,
+                    password: $request->password
+                ),
+                // Use AnonymousNotifiable for Brevo route
+                (new \Illuminate\Notifications\AnonymousNotifiable)->route('brevo', $email)
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'OTP berhasil dikirim. Silakan cek email Anda untuk verifikasi.',
+            ]);
+
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengirim OTP: ' . $e->getMessage(),
+            ], 500);
+        }
     }
-}
 
 
 
