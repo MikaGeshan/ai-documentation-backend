@@ -57,57 +57,57 @@ class ExploreController extends Controller
      */
 
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'title' => 'required|string|max:255',
-        'description' => 'required|string|max:200',
-        'web_link' => 'required|string',
-        'filter' => 'nullable|string',
-        'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
-    ]);
-
-    try {
-        if (!$request->hasFile('image') || !$request->file('image')->isValid()) {
-            return response()->json(['error' => 'No valid image uploaded.'], 422);
-        }
-
-        $file = $request->file('image');
-        $filePath = $file->getRealPath();
-
-        if (!$filePath) {
-            return response()->json(['error' => 'Temporary file not found.'], 422);
-        }
-
-        // Upload to Cloudinary
-        $cloudinaryService = app(CloudinaryService::class);
-        $uploadedFileUrl = $cloudinaryService->upload($filePath, 'explore_images');
-
-        if (!$uploadedFileUrl) {
-            return response()->json(['error' => 'Cloudinary upload failed.'], 500);
-        }
-
-        $explore = Explore::create([
-            'title' => $validated['title'],
-            'description' => $validated['description'],
-            'web_link' => $validated['web_link'],
-            'filter' => $validated['filter'] ?? null,
-            'image' => $uploadedFileUrl,
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'required|string|max:200',
+            'web_link' => 'required|string',
+            'filter' => 'nullable|string',
+            'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        return response()->json([
-            'message' => 'Explore item created successfully',
-            'data' => $explore,
-        ], 201);
+        try {
+            if (!$request->hasFile('image') || !$request->file('image')->isValid()) {
+                return response()->json(['error' => 'No valid image uploaded.'], 422);
+            }
 
-    } catch (\Throwable $e) {
-        Log::error('Explore upload error: ' . $e->getMessage());
+            $file = $request->file('image');
+            $filePath = $file->getRealPath();
 
-        return response()->json([
-            'error' => 'The image failed to upload.',
-            'message' => $e->getMessage(),
-        ], 500);
+            if (!$filePath) {
+                return response()->json(['error' => 'Temporary file not found.'], 422);
+            }
+
+            // Upload to Cloudinary
+            $cloudinaryService = app(CloudinaryService::class);
+            $uploadedFileUrl = $cloudinaryService->upload($filePath, 'explore_images');
+
+            if (!$uploadedFileUrl) {
+                return response()->json(['error' => 'Cloudinary upload failed.'], 500);
+            }
+
+            $explore = Explore::create([
+                'title' => $validated['title'],
+                'description' => $validated['description'],
+                'web_link' => $validated['web_link'],
+                'filter' => $validated['filter'] ?? null,
+                'image' => $uploadedFileUrl,
+            ]);
+
+            return response()->json([
+                'message' => 'Explore item created successfully',
+                'data' => $explore,
+            ], 201);
+
+        } catch (\Throwable $e) {
+            Log::error('Explore upload error: ' . $e->getMessage());
+
+            return response()->json([
+                'error' => 'The image failed to upload.',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
-}
 
 
     /**
@@ -135,43 +135,65 @@ class ExploreController extends Controller
 
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|required|string|max:100',
+            'description' => 'sometimes|required|string|max:200',
             'web_link' => 'sometimes|required|string',
             'filter' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        if ($request->hasFile('image')) {
-            // If an old image exists, delete it from Cloudinary
-            if ($explore->image) {
-                try {
-                    $path = parse_url($explore->image, PHP_URL_PATH); 
-                    $filename = pathinfo($path, PATHINFO_FILENAME);
-                    $folder = 'explore_images/' . $filename;
+        try {
+            // If a new image is uploaded
+            if ($request->hasFile('image') && $request->file('image')->isValid()) {
+                $file = $request->file('image');
+                $filePath = $file->getRealPath();
 
-                    (new UploadApi())->destroy($folder);
-                } catch (\Exception $e) {
-                    Log::warning("Failed to delete old Cloudinary image: " . $e->getMessage());
+                if (!$filePath) {
+                    return response()->json(['error' => 'Temporary file not found.'], 422);
                 }
+
+                // Remove old image from Cloudinary if it exists
+                if ($explore->image) {
+                    try {
+                        $path = parse_url($explore->image, PHP_URL_PATH);
+                        $filename = pathinfo($path, PATHINFO_FILENAME);
+                        $publicId = 'explore_images/' . $filename;
+
+                        (new UploadApi())->destroy($publicId);
+                    } catch (\Exception $e) {
+                        Log::warning("Failed to delete old Cloudinary image: " . $e->getMessage());
+                    }
+                }
+
+                // Upload new image
+                $cloudinaryService = app(CloudinaryService::class);
+                $uploadedFileUrl = $cloudinaryService->upload($filePath, 'explore_images');
+
+                if (!$uploadedFileUrl) {
+                    return response()->json(['error' => 'Cloudinary upload failed.'], 500);
+                }
+
+                $validated['image'] = $uploadedFileUrl;
+            } else {
+                // Keep the old image if none is uploaded
+                $validated['image'] = $explore->image;
             }
 
-            $uploadedFile = (new UploadApi())->upload(
-                $request->file('image')->getRealPath(),
-                ['folder' => 'explore_images']
-            );
+            $explore->update($validated);
+            $explore->refresh();
 
-            $validated['image'] = $uploadedFile['secure_url'] ?? null;
-        } else {
-            $validated['image'] = $explore->image;
+            return response()->json([
+                'message' => 'Explore item updated successfully',
+                'data' => $explore,
+            ], 200);
+
+        } catch (\Throwable $e) {
+            Log::error('Explore update error: ' . $e->getMessage());
+
+            return response()->json([
+                'error' => 'The update failed.',
+                'message' => $e->getMessage(),
+            ], 500);
         }
-
-        $explore->update($validated);
-        $explore->refresh();
-
-        return response()->json([
-            'message' => 'Explore item updated successfully',
-            'data' => $explore,
-        ], 200);
     }
 
 
