@@ -142,21 +142,25 @@ class ExploreController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
+            // If an old image exists, delete it from Cloudinary
             if ($explore->image) {
                 try {
-                    $publicId = pathinfo(parse_url($explore->image, PHP_URL_PATH), PATHINFO_FILENAME);
-                    Cloudinary::destroy('explore_images/' . $publicId);
+                    $path = parse_url($explore->image, PHP_URL_PATH); 
+                    $filename = pathinfo($path, PATHINFO_FILENAME);
+                    $folder = 'explore_images/' . $filename;
+
+                    (new UploadApi())->destroy($folder);
                 } catch (\Exception $e) {
                     Log::warning("Failed to delete old Cloudinary image: " . $e->getMessage());
                 }
             }
 
-            $uploadedFileUrl = Cloudinary::upload(
+            $uploadedFile = (new UploadApi())->upload(
                 $request->file('image')->getRealPath(),
                 ['folder' => 'explore_images']
-            )->getSecurePath();
+            );
 
-            $validated['image'] = $uploadedFileUrl;
+            $validated['image'] = $uploadedFile['secure_url'] ?? null;
         } else {
             $validated['image'] = $explore->image;
         }
@@ -169,7 +173,6 @@ class ExploreController extends Controller
             'data' => $explore,
         ], 200);
     }
-
 
 
     /**
