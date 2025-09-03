@@ -129,7 +129,7 @@ class ExploreController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $id)
+   public function update(Request $request, $id)
     {
         $explore = Explore::findOrFail($id);
 
@@ -142,6 +142,8 @@ class ExploreController extends Controller
         ]);
 
         try {
+            $cloudinaryService = app(\App\Services\CloudinaryService::class);
+
             // If a new image is uploaded
             if ($request->hasFile('image') && $request->file('image')->isValid()) {
                 $file = $request->file('image');
@@ -153,19 +155,10 @@ class ExploreController extends Controller
 
                 // Remove old image from Cloudinary if it exists
                 if ($explore->image) {
-                    try {
-                        $path = parse_url($explore->image, PHP_URL_PATH);
-                        $filename = pathinfo($path, PATHINFO_FILENAME);
-                        $publicId = 'explore_images/' . $filename;
-
-                        (new UploadApi())->destroy($publicId);
-                    } catch (\Exception $e) {
-                        Log::warning("Failed to delete old Cloudinary image: " . $e->getMessage());
-                    }
+                    $cloudinaryService->delete($explore->image, 'explore_images');
                 }
 
                 // Upload new image
-                $cloudinaryService = app(CloudinaryService::class);
                 $uploadedFileUrl = $cloudinaryService->upload($filePath, 'explore_images');
 
                 if (!$uploadedFileUrl) {
