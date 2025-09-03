@@ -193,16 +193,41 @@ class ExploreController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id)
+   public function destroy($id)
     {
         try {
             $explore = Explore::findOrFail($id);
+            
+            // Initialize Cloudinary service
+            $cloudinaryService = new CloudinaryService();
+            
+            // Delete image from Cloudinary if it exists
+            if (!empty($explore->image)) {
+                try {
+                    $deleted = $cloudinaryService->delete($explore->image, 'explore');
+                    
+                    if (!$deleted) {
+                        Log::warning("Failed to delete Cloudinary image for Explore ID: {$id}, URL: {$explore->image}");
+                    }
+                } catch (\Exception $cloudinaryException) {
+                    Log::error("Cloudinary deletion error for Explore ID: {$id}: " . $cloudinaryException->getMessage());
+                }
+            }
+            
             $explore->delete();
 
             return response()->json([
                 'message' => 'Explore item deleted successfully',
             ], 200);
+            
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Explore item not found',
+            ], 404);
+            
         } catch (\Exception $e) {
+            Log::error("Failed to delete explore item ID: {$id}: " . $e->getMessage());
+            
             return response()->json([
                 'message' => 'Failed to delete explore item',
                 'error' => $e->getMessage(),
